@@ -1,0 +1,31 @@
+# @package _group_
+
+# these parameters are inherited by datasets, data_loaders and collators
+# but they might be overwritten
+
+# splits
+train_mode: train
+validation_mode: validation
+test_mode: test
+
+# dataset
+ignore_label: 255
+add_distance: true
+in_channels: 2
+num_labels: 19
+instance_population:  ${general.instance_population}
+sweep: 2
+min_stuff_cls_id: 9
+min_points: 50
+class_names: ['car', 'bicycle', 'motorcycle', 'truck', 'other-vehicle', 'person', 'bicyclist',
+'motorcyclist', 'road', 'parking', 'sidewalk', 'other-ground', 'building', 'fence', 'vegetation',
+'trunk', 'terrain', 'pole', 'traffic-sign']
+
+# data loader
+pin_memory: true
+num_workers: 4
+batch_size: 4
+test_batch_size: 2
+
+# collation
+voxel_size: 0.05

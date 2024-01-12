@@ -1,0 +1,8 @@
+.DS_STORE
+/saved
+/logs
+/data/semantic_kitti
+/.vscode
+.python-version
+__pycache__/
+*.out

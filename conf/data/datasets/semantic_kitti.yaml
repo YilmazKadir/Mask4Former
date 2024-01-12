@@ -1,0 +1,30 @@
+# @package data
+train_dataset:
+  _target_: datasets.lidar.LidarDataset
+  data_dir: data/semantic_kitti
+  mode: ${data.train_mode}
+  add_distance: ${data.add_distance}
+  sweep: ${data.sweep}
+  instance_population: ${data.instance_population}
+  ignore_label: ${data.ignore_label}
+  volume_augmentations_path: conf/augmentation/volumentations_aug.yaml
+
+validation_dataset:
+  _target_: datasets.lidar.LidarDataset
+  data_dir: data/semantic_kitti
+  mode: ${data.validation_mode}
+  add_distance: ${data.add_distance}
+  sweep: ${data.sweep}
+  instance_population: 0
+  ignore_label: ${data.ignore_label}
+  volume_augmentations_path: null
+
+test_dataset:
+  _target_: datasets.lidar.LidarDataset
+  data_dir: data/semantic_kitti
+  mode: ${data.test_mode}
+  add_distance: ${data.add_distance}
+  sweep: ${data.sweep}
+  instance_population: 0
+  ignore_label: ${data.ignore_label}
+  volume_augmentations_path: null

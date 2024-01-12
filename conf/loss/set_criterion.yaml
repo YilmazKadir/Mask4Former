@@ -1,0 +1,8 @@
+# @package _group_
+_target_: models.criterion.SetCriterion
+num_classes: ${data.num_labels}
+eos_coef: 0.1
+losses:
+  - "labels"
+  - "masks"
+  - "bboxs"

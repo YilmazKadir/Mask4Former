@@ -1,0 +1,34 @@
+general:
+  mode: "train"
+  seed: null
+  ckpt_path: null
+  project_name: mask4d
+  workspace: kadiryilmaz
+  instance_population: 20
+  dbscan_eps: null
+  experiment_name: ${now:%Y-%m-%d_%H%M%S}
+  save_dir: saved/${general.experiment_name}
+  gpus: 1
+
+defaults:
+  - data: kitti
+  - data/data_loaders: simple_loader
+  - data/datasets: semantic_kitti
+  - data/collation_functions: voxelize_collate
+  - logging: full
+  - model: mask4d
+  - optimizer: adamw
+  - scheduler: onecyclelr
+  - trainer: trainer30
+  - callbacks: callbacks_panoptic
+  - matcher: hungarian_matcher
+  - loss: set_criterion
+  - metric: lstq
+
+hydra:
+  run:
+    dir: saved/hydra_logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: saved/hydra_logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    # dir: ${general.save_dir}
+    subdir: ${hydra.job.num}_${hydra.job.id}

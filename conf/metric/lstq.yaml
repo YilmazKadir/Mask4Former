@@ -1,0 +1,5 @@
+# @package _group_
+_target_: models.metrics.Panoptic4DEval
+n_classes: ${data.num_labels}
+min_stuff_cls_id: ${data.min_stuff_cls_id}
+min_points: ${data.min_points}
