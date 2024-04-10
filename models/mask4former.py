@@ -5,13 +5,13 @@ import MinkowskiEngine.MinkowskiOps as me
 from MinkowskiEngine.MinkowskiPooling import MinkowskiAvgPooling
 from models.modules.common import conv
 from models.position_embedding import PositionEmbeddingCoordsSine
-from third_party.pointnet2.pointnet2_utils import furthest_point_sample
 from models.modules.helpers_3detr import GenericMLP
 from torch.cuda.amp import autocast
 from models.modules.attention import CrossAttentionLayer, SelfAttentionLayer, FFNLayer
+from pytorch3d.ops import sample_farthest_points
 
 
-class Mask4D(nn.Module):
+class Mask4Former(nn.Module):
     def __init__(
         self,
         backbone,
@@ -105,8 +105,8 @@ class Mask4D(nn.Module):
         mins = []
         maxs = []
         for coords, feats in zip(x.decomposed_coordinates, coordinates.decomposed_features):
-            fps_idx = furthest_point_sample(coords[None, ...].float(), self.num_queries).squeeze(0).long()
-            sampled_coords.append(feats[fps_idx, :3])
+            _, fps_idx = sample_farthest_points(coords[None, ...].float(), K=self.num_queries)
+            sampled_coords.append(feats[fps_idx.squeeze(0).long(), :3])
             mins.append(feats[:, :3].min(dim=0)[0])
             maxs.append(feats[:, :3].max(dim=0)[0])
 

@@ -2,7 +2,7 @@ general:
   mode: "train"
   seed: null
   ckpt_path: null
-  project_name: mask4d
+  project_name: mask4former
   workspace: kadiryilmaz
   instance_population: 20
   dbscan_eps: null
@@ -16,7 +16,7 @@ defaults:
   - data/datasets: semantic_kitti
   - data/collation_functions: voxelize_collate
   - logging: full
-  - model: mask4d
+  - model: mask4former
   - optimizer: adamw
   - scheduler: onecyclelr
   - trainer: trainer30

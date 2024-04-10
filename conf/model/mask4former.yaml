@@ -1,5 +1,5 @@
 # @package _group_
-_target_: models.Mask4D
+_target_: models.Mask4Former
 
 # backbone
 backbone:

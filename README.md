@@ -1,4 +1,4 @@
-# MASK4D: Mask Transformer for 4D Panoptic Segmentation 
+# Mask4Former: Mask Transformer for 4D Panoptic Segmentation (Renamed from MASK4D)
 <div align="center">
 <a href="https://github.com/YilmazKadir/">Kadir Yilmaz</a>, 
 <a href="https://jonasschult.github.io/">Jonas Schult</a>,
@@ -7,7 +7,7 @@
 
 RWTH Aachen University
 
-MASK4D is a transformer-based model for 4D Panoptic Segmentation, achieving a new state-of-the-art performance on the SemanticKITTI test set.
+Mask4Former is a transformer-based model for 4D Panoptic Segmentation, achieving a new state-of-the-art performance on the SemanticKITTI test set.
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
@@ -19,11 +19,12 @@ MASK4D is a transformer-based model for 4D Panoptic Segmentation, achieving a ne
 </div>
 <br><br>
 
-[[Project Webpage](https://vision.rwth-aachen.de/mask4d)] [[arXiv](https://arxiv.org/abs/2309.16133)]
+[[Project Webpage](https://vision.rwth-aachen.de/Mask4Former)] [[arXiv](https://arxiv.org/abs/2309.16133)]
 
 ## News
+* **2023-01-29**: Mask4Former accepted to ICRA 2024
 
-* **2023-09-28**: Paper on arXiv
+* **2023-09-28**: Mask4Former on arXiv
 
 ### Dependencies
 The main dependencies of the project are the following:
@@ -33,23 +34,17 @@ cuda: 11.7
 ```
 You can set up a conda environment as follows
 ```
-conda create --name mask4d python=3.8
-conda activate mask4d
-pip install -r requirements.txt
+conda create --name mask4former python=3.8
+conda activate mask4former
 
-pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu117
+pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
 
-pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.0+cu117.html
+pip install -r requirements.txt --no-deps
 
-pip install 'git+https://github.com/facebookresearch/detectron2.git@710e7795d0eeadf9def0e7ef957eea13532e34cf' --no-deps
+pip install git+https://github.com/NVIDIA/MinkowskiEngine.git -v --no-deps
 
-cd third_party/pointnet2 && python setup.py install
+pip install git+https://github.com/facebookresearch/pytorch3d.git@v0.7.5 --no-deps
 
-cd ..
-git clone https://github.com/NVIDIA/MinkowskiEngine.git
-cd MinkowskiEngine
-python setup.py install
-cd ../..
 ```
 
 ### Data preprocessing
@@ -66,7 +61,7 @@ python -m datasets.preprocessing.semantic_kitti_preprocessing make_instance_data
 ```
 
 ### Training and testing
-Train MASK4D:
+Train Mask4Former:
 ```bash
 python main_panoptic.py
 ```
@@ -86,16 +81,16 @@ general.ckpt_path='PATH_TO_CHECKPOINT.ckpt' \
 general.dbscan_eps=1.0
 ```
 ## Trained checkpoint
-[MASK4D](https://omnomnom.vision.rwth-aachen.de/data/mask4d/mask4d.ckpt)
+[Mask4Former](https://omnomnom.vision.rwth-aachen.de/data/mask4former/mask4former.ckpt)
 
 The provided model, trained after the submission, achieves 71.1 LSTQ without DBSCAN and 71.5 with DBSCAN post-processing.
 
 ## BibTeX
 ```
-@article{yilmaz2023mask4d,
-  title     = {{MASK4D: Mask Transformer for 4D Panoptic Segmentation}},
+@inproceedings{yilmaz24mask4former,
+  title     = {{Mask4Former: Mask Transformer for 4D Panoptic Segmentation}},
   author    = {Yilmaz, Kadir and Schult, Jonas and Nekrasov, Alexey and Leibe, Bastian},
-  journal   = {arXiv prepring arXiv:2309.16133},
-  year      = {2023}
+  booktitle = {{International Conference on Robotics and Automation (ICRA)}},
+  year      = {2024}
 }
 ```
