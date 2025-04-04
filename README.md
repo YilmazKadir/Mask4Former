@@ -34,7 +34,7 @@ cuda: 11.7
 ```
 You can set up a conda environment as follows
 ```
-conda create --name mask4former python=3.8
+conda create --name mask4former python=3.8 pip==24.0 wheel==0.43.0 setuptools==69.2.0
 conda activate mask4former
 
 pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
