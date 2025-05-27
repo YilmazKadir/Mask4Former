@@ -1,13 +1,8 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# Modified by Bowen Cheng from https://github.com/facebookresearch/detr/blob/master/models/matcher.py
-"""
-Modules to compute the matching cost and solve the corresponding LSAP.
-"""
 import torch
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
 from torch import nn
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 
 def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
@@ -35,10 +30,16 @@ def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
     """
     hw = inputs.shape[1]
 
-    pos = F.binary_cross_entropy_with_logits(inputs, torch.ones_like(inputs), reduction="none")
-    neg = F.binary_cross_entropy_with_logits(inputs, torch.zeros_like(inputs), reduction="none")
+    pos = F.binary_cross_entropy_with_logits(
+        inputs, torch.ones_like(inputs), reduction="none"
+    )
+    neg = F.binary_cross_entropy_with_logits(
+        inputs, torch.zeros_like(inputs), reduction="none"
+    )
 
-    loss = torch.einsum("nc,mc->nm", pos, targets) + torch.einsum("nc,mc->nm", neg, (1 - targets))
+    loss = torch.einsum("nc,mc->nm", pos, targets) + torch.einsum(
+        "nc,mc->nm", neg, (1 - targets)
+    )
 
     return loss / hw
 
@@ -47,28 +48,9 @@ batch_sigmoid_ce_loss_jit = torch.jit.script(batch_sigmoid_ce_loss)  # type: tor
 
 
 class HungarianMatcher(nn.Module):
-    """This class computes an assignment between the targets and the predictions of the network
-
-    For efficiency reasons, the targets don't include the no_object. Because of this, in general,
-    there are more predictions than targets. In this case, we do a 1-to-1 matching of the best predictions,
-    while the others are un-matched (and thus treated as non-objects).
-    """
-
-    def __init__(
-        self, cost_class: float = 1, cost_mask: float = 1, cost_dice: float = 1, cost_box: float = 1
-    ):
-        """Creates the matcher
-
-        Params:
-            cost_class: This is the relative weight of the classification error in the matching cost
-            cost_mask: This is the relative weight of the focal loss of the binary mask in the matching cost
-            cost_dice: This is the relative weight of the dice loss of the binary mask in the matching cost
-        """
+    def __init__(self, loss_weights):
         super().__init__()
-        self.cost_class = cost_class
-        self.cost_mask = cost_mask
-        self.cost_dice = cost_dice
-        self.cost_box = cost_box
+        self.loss_weights = loss_weights
 
     @torch.no_grad()
     def forward(self, outputs, targets):
@@ -97,7 +79,9 @@ class HungarianMatcher(nn.Module):
 
         # Iterate through batch size
         for b in range(bs):
-            out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, num_classes]
+            out_prob = outputs["pred_logits"][b].softmax(
+                -1
+            )  # [num_queries, num_classes]
             tgt_ids = targets[b]["labels"]
 
             cost_class = -out_prob[:, tgt_ids]
@@ -106,7 +90,7 @@ class HungarianMatcher(nn.Module):
             # gt masks are already padded when preparing target
             tgt_mask = targets[b]["masks"].to(out_mask)
 
-            with autocast(enabled=False):
+            with autocast("cuda", enabled=False):
                 out_mask = out_mask.float()
                 tgt_mask = tgt_mask.float()
                 # Compute the focal loss between masks
@@ -116,11 +100,19 @@ class HungarianMatcher(nn.Module):
                 cost_dice = batch_dice_loss_jit(out_mask, tgt_mask)
 
             # Final cost matrix
-            C = self.cost_mask * cost_mask + self.cost_class * cost_class + self.cost_dice * cost_dice
-            C = C.reshape(num_queries, -1).cpu()
+            cost_matrix = (
+                self.loss_weights["w_mask"] * cost_mask
+                + self.loss_weights["w_class"] * cost_class
+                + self.loss_weights["w_dice"] * cost_dice
+            )
+            cost_matrix = cost_matrix.reshape(num_queries, -1).cpu()
 
-            indices.append(linear_sum_assignment(C))
+            indices.append(linear_sum_assignment(cost_matrix))
 
         return [
-            (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices
+            (
+                torch.as_tensor(i, dtype=torch.int64),
+                torch.as_tensor(j, dtype=torch.int64),
+            )
+            for i, j in indices
         ]

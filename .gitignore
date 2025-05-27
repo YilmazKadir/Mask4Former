@@ -6,3 +6,6 @@
 .python-version
 __pycache__/
 *.out
+*.txt
+.envrc
+.venv/

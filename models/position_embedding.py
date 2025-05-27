@@ -16,7 +16,9 @@ def shift_scale_points(pred_xyz, input_range):
 
     src_diff = input_range[1][:, None, :] - input_range[0][:, None, :]
     dst_diff = dst_range[1][:, None, :] - dst_range[0][:, None, :]
-    prop_xyz = (((pred_xyz - input_range[0][:, None, :]) * dst_diff) / src_diff) + dst_range[0][:, None, :]
+    prop_xyz = (
+        ((pred_xyz - input_range[0][:, None, :]) * dst_diff) / src_diff
+    ) + dst_range[0][:, None, :]
     return prop_xyz
 
 
@@ -53,7 +55,9 @@ class PositionEmbeddingCoordsSine(nn.Module):
             xyz = shift_scale_points(xyz, input_range=input_range)
 
         xyz *= 2 * np.pi
-        xyz_proj = torch.mm(xyz.view(-1, self.d_in), self.gauss_B[:, :d_out]).view(bsize, npoints, d_out)
+        xyz_proj = torch.mm(xyz.view(-1, self.d_in), self.gauss_B[:, :d_out]).view(
+            bsize, npoints, d_out
+        )
         final_embeds = [xyz_proj.sin(), xyz_proj.cos()]
 
         # return batch x d_pos x npoints embedding

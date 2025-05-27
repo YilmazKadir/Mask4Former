@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+from models.matcher import HungarianMatcher
 
 
 def dice_loss(inputs: torch.Tensor, targets: torch.Tensor, num_masks: float):
@@ -31,52 +32,47 @@ def box_loss(inputs: torch.Tensor, targets: torch.Tensor, num_bboxs: float):
 box_loss_jit = torch.jit.script(box_loss)  # type: torch.jit.ScriptModule
 
 
-class SetCriterion(nn.Module):
-    """This class computes the loss for DETR.
-    The process happens in two steps:
-        1) we compute hungarian assignment between ground truth boxes and the outputs of the model
-        2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
-    """
-
-    def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
-        """Create the criterion.
-        Parameters:
-            num_classes: number of object categories, omitting the special no-object category
-            matcher: module able to compute a matching between targets and proposals
-            weight_dict: dict containing as key the names of the losses and as values their relative weight.
-            eos_coef: relative classification weight applied to the no-object category
-            losses: list of all the losses to be applied. See get_loss for list of available losses.
-        """
+class LossOverall(nn.Module):
+    def __init__(self, num_classes, w_class, w_mask, w_dice, w_box, no_object_coef):
         super().__init__()
         self.num_classes = num_classes
-        self.matcher = matcher
-        self.weight_dict = weight_dict
-        self.eos_coef = eos_coef
-        self.losses = losses
-        empty_weight = torch.ones(num_classes + 1)
-        empty_weight[-1] = self.eos_coef
+        self.loss_weights = {
+            "w_class": w_class,
+            "w_mask": w_mask,
+            "w_dice": w_dice,
+            "w_box": w_box,
+        }
+        self.matcher = HungarianMatcher(self.loss_weights)
 
-        self.register_buffer("empty_weight", empty_weight)
+        ce_class_weights = torch.ones(num_classes + 1)
+        ce_class_weights[-1] = no_object_coef
+        self.register_buffer("ce_class_weights", ce_class_weights)
 
-    def loss_labels(self, outputs, targets, indices):
+    def loss_classes(self, outputs, targets, indices):
         src_logits = outputs["pred_logits"].float()
 
         idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        target_classes_o = torch.cat(
+            [t["labels"][J] for t, (_, J) in zip(targets, indices)]
+        )
         target_classes = torch.full(
-            src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
+            src_logits.shape[:2],
+            self.num_classes,
+            dtype=torch.int64,
+            device=src_logits.device,
         )
         target_classes[idx] = target_classes_o
 
         loss_ce = F.cross_entropy(
-            src_logits.transpose(1, 2), target_classes, self.empty_weight, ignore_index=255
+            src_logits.transpose(1, 2),
+            target_classes,
+            self.ce_class_weights,
+            ignore_index=255,
         )
-        losses = {"loss_ce": loss_ce}
-        return losses
+        return loss_ce
 
     def loss_masks(self, outputs, targets, indices):
         loss_masks = []
-        loss_dices = []
 
         for batch_id, (map_id, target_id) in enumerate(indices):
             map = outputs["pred_masks"][batch_id][:, map_id].T
@@ -84,14 +80,25 @@ class SetCriterion(nn.Module):
             num_masks = target_mask.shape[0]
 
             loss_masks.append(sigmoid_ce_loss_jit(map, target_mask, num_masks))
+        return torch.sum(torch.stack(loss_masks))
+
+    def loss_dices(self, outputs, targets, indices):
+        loss_dices = []
+
+        for batch_id, (map_id, target_id) in enumerate(indices):
+            map = outputs["pred_masks"][batch_id][:, map_id].T
+            target_mask = targets[batch_id]["masks"][target_id].float()
+            num_masks = target_mask.shape[0]
+
             loss_dices.append(dice_loss_jit(map, target_mask, num_masks))
-        return {
-            "loss_mask": torch.sum(torch.stack(loss_masks)),
-            "loss_dice": torch.sum(torch.stack(loss_dices)),
-        }
+        return torch.sum(torch.stack(loss_dices))
 
     def loss_bboxs(self, outputs, targets, indices):
         loss_box = torch.zeros(1, device=outputs["pred_bboxs"].device)
+
+        if self.loss_weights["w_box"] == 0:
+            return loss_box
+
         for batch_id, (map_id, target_id) in enumerate(indices):
             pred_bboxs = outputs["pred_bboxs"][batch_id, map_id, :]
             target_bboxs = targets[batch_id]["bboxs"][target_id]
@@ -102,25 +109,23 @@ class SetCriterion(nn.Module):
                 pred_bboxs = pred_bboxs[keep_things]
                 num_bboxs = target_bboxs.shape[0]
                 loss_box += box_loss_jit(pred_bboxs, target_bboxs, num_bboxs)
-        return {
-            "loss_box": loss_box,
-        }
+        return loss_box
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
-        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
+        batch_idx = torch.cat(
+            [torch.full_like(src, i) for i, (src, _) in enumerate(indices)]
+        )
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
     def _get_tgt_permutation_idx(self, indices):
         # permute targets following indices
-        batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
+        batch_idx = torch.cat(
+            [torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)]
+        )
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
-
-    def get_loss(self, loss, outputs, targets, indices):
-        loss_map = {"labels": self.loss_labels, "masks": self.loss_masks, "bboxs": self.loss_bboxs}
-        return loss_map[loss](outputs, targets, indices)
 
     def forward(self, outputs, targets):
         """This performs the loss computation.
@@ -135,17 +140,33 @@ class SetCriterion(nn.Module):
         indices = self.matcher(outputs_without_aux, targets)
 
         # Compute all the requested losses
-        losses = {}
-        for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, indices))
+        losses = {
+            "loss_class": self.loss_classes(outputs, targets, indices)
+            * self.loss_weights["w_class"],
+            "loss_mask": self.loss_masks(outputs, targets, indices)
+            * self.loss_weights["w_mask"],
+            "loss_dice": self.loss_dices(outputs, targets, indices)
+            * self.loss_weights["w_dice"],
+            "loss_box": self.loss_bboxs(outputs, targets, indices)
+            * self.loss_weights["w_box"],
+        }
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
                 indices = self.matcher(aux_outputs, targets)
-                for loss in self.losses:
-                    l_dict = self.get_loss(loss, aux_outputs, targets, indices)
-                    l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
-                    losses.update(l_dict)
-
+                losses.update(
+                    {
+                        f"loss_class_{i}": self.loss_classes(
+                            aux_outputs, targets, indices
+                        )
+                        * self.loss_weights["w_class"],
+                        f"loss_mask_{i}": self.loss_masks(aux_outputs, targets, indices)
+                        * self.loss_weights["w_mask"],
+                        f"loss_dice_{i}": self.loss_dices(aux_outputs, targets, indices)
+                        * self.loss_weights["w_dice"],
+                        f"loss_box_{i}": self.loss_bboxs(aux_outputs, targets, indices)
+                        * self.loss_weights["w_box"],
+                    }
+                )
         return losses

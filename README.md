@@ -22,60 +22,57 @@ Mask4Former is a transformer-based model for 4D Panoptic Segmentation, achieving
 [[Project Webpage](https://vision.rwth-aachen.de/Mask4Former)] [[arXiv](https://arxiv.org/abs/2309.16133)]
 
 ## News
-* **2023-01-29**: Mask4Former accepted to ICRA 2024
+* **2025-05-25**: MinkowskiEngine has been replaced with Spconv to simplify installation and enable 16-bit operations. Training now should be roughly twice as fast. See Minkowski in Tags for the previous version of the code.
+
+* **2024-01-29**: Mask4Former accepted to ICRA 2024
 
 * **2023-09-28**: Mask4Former on arXiv
 
 ### Dependencies
 The main dependencies of the project are the following:
 ```yaml
-python: 3.8
-cuda: 11.7
+python: 3.11
+cuda: 12.4
 ```
-You can set up a conda environment as follows
+We use [uv](https://docs.astral.sh/uv/getting-started/) as Python package and project manager. You can also set up your environment as you prefer and just use pip install command.
+
+You can set up a uv virtual environment in your local directory as follows:
 ```
-conda create --name mask4former python=3.8 pip==24.0 wheel==0.43.0 setuptools==69.2.0
-conda activate mask4former
+uv venv --python 3.11
+source .venv/bin/activate
+```
 
-pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
-
-pip install -r requirements.txt --no-deps
-
-pip install git+https://github.com/NVIDIA/MinkowskiEngine.git -v --no-deps
-
-pip install git+https://github.com/facebookresearch/pytorch3d.git@v0.7.5 --no-deps
-
+You can install the python packages as follows:
+```
+uv pip install -r requirements.txt --no-deps --extra-index-url https://download.pytorch.org/whl/cu124
 ```
 
 ### Data preprocessing
-After installing the dependencies, we preprocess the SemanticKITTI dataset.
+After installing the dependencies, we preprocess the SemanticKITTI dataset. This can take some time.
 
 ```
 python -m datasets.preprocessing.semantic_kitti_preprocessing preprocess \
---data_dir "PATH_TO_RAW_SEMKITTI_DATASET" \
---save_dir "data/semantic_kitti"
-
-python -m datasets.preprocessing.semantic_kitti_preprocessing make_instance_database \
---data_dir "PATH_TO_RAW_SEMKITTI_DATASET" \
---save_dir "data/semantic_kitti"
+--data_dir $SEMANTICKITTI_DIR/SemanticKITTI/dataset \
+--save_dir data/semantic_kitti \
+--generate_instances True
 ```
 
 ### Training and testing
 Train Mask4Former:
 ```bash
-python main_panoptic.py
+python main_panoptic_4d.py
 ```
 
 In the simplest case the inference command looks as follows:
 ```bash
-python main_panoptic.py \
+python main_panoptic_4d.py \
 general.mode="validate" \
 general.ckpt_path='PATH_TO_CHECKPOINT.ckpt'
 ```
 
 Or you can use DBSCAN to boost the scores even further:
 ```bash
-python main_panoptic.py \
+python main_panoptic_4d.py \
 general.mode="validate" \
 general.ckpt_path='PATH_TO_CHECKPOINT.ckpt' \
 general.dbscan_eps=1.0

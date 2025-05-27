@@ -3,7 +3,6 @@ general:
   seed: null
   ckpt_path: null
   project_name: mask4former
-  workspace: kadiryilmaz
   instance_population: 20
   dbscan_eps: null
   experiment_name: ${now:%Y-%m-%d_%H%M%S}
@@ -11,6 +10,7 @@ general:
   gpus: 1
 
 defaults:
+  - _self_
   - data: kitti
   - data/data_loaders: simple_loader
   - data/datasets: semantic_kitti
@@ -21,7 +21,6 @@ defaults:
   - scheduler: onecyclelr
   - trainer: trainer30
   - callbacks: callbacks_panoptic
-  - matcher: hungarian_matcher
   - loss: set_criterion
   - metric: lstq
 

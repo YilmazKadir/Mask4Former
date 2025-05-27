@@ -1,4 +1,3 @@
-# This file is covered by the LICENSE file in the root of this project.
 labels: 
   0 : "unlabeled"
   1 : "outlier"
@@ -195,7 +194,7 @@ split: # sequence numbers
     - 7
     - 9
     - 10
-  valid:
+  validation:
     - 8
   test:
     - 11

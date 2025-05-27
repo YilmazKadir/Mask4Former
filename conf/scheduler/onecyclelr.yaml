@@ -1,4 +1,3 @@
-# @package _group_
 scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
   max_lr: ${optimizer.lr}

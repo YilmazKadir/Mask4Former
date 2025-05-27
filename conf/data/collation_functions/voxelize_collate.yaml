@@ -1,16 +1,15 @@
 # @package data
-
 train_collation:
-  _target_: datasets.utils.VoxelizeCollate
+  _target_: datasets.collate.VoxelizeCollate
   ignore_label: ${data.ignore_label}
   voxel_size: ${data.voxel_size}
 
 validation_collation:
-  _target_: datasets.utils.VoxelizeCollate
+  _target_: datasets.collate.VoxelizeCollate
   ignore_label: ${data.ignore_label}
   voxel_size: ${data.voxel_size}
 
 test_collation:
-  _target_: datasets.utils.VoxelizeCollate
+  _target_: datasets.collate.VoxelizeCollate
   ignore_label: ${data.ignore_label}
   voxel_size: ${data.voxel_size}

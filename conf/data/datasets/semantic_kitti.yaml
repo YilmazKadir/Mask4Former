@@ -1,8 +1,8 @@
 # @package data
 train_dataset:
-  _target_: datasets.lidar.LidarDataset
+  _target_: datasets.kitti.SemanticKITTIDataset
   data_dir: data/semantic_kitti
-  mode: ${data.train_mode}
+  mode: "${data.train_mode}"
   add_distance: ${data.add_distance}
   sweep: ${data.sweep}
   instance_population: ${data.instance_population}
@@ -10,7 +10,7 @@ train_dataset:
   volume_augmentations_path: conf/augmentation/volumentations_aug.yaml
 
 validation_dataset:
-  _target_: datasets.lidar.LidarDataset
+  _target_: datasets.kitti.SemanticKITTIDataset
   data_dir: data/semantic_kitti
   mode: ${data.validation_mode}
   add_distance: ${data.add_distance}
@@ -20,7 +20,7 @@ validation_dataset:
   volume_augmentations_path: null
 
 test_dataset:
-  _target_: datasets.lidar.LidarDataset
+  _target_: datasets.kitti.SemanticKITTIDataset
   data_dir: data/semantic_kitti
   mode: ${data.test_mode}
   add_distance: ${data.add_distance}

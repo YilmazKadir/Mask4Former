@@ -1,5 +1,5 @@
-# @package _group_
-_target_: models.metrics.Panoptic4DEval
+_target_: models.metrics.LSTQ
 n_classes: ${data.num_labels}
-min_stuff_cls_id: ${data.min_stuff_cls_id}
+ignore_label: ${data.ignore_label}
+stuff_cls_ids: ${data.stuff_cls_ids}
 min_points: ${data.min_points}

@@ -1,1 +1,1 @@
-from .panoptic_quality import Panoptic4DEval
+from .lstq import LSTQ

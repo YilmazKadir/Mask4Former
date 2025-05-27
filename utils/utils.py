@@ -1,15 +1,10 @@
+import statistics
+import os
 import numpy as np
 import torch
+from collections.abc import MutableMapping
 from scipy.optimize import linear_sum_assignment
-import sys
-import pytorch_lightning as pl
 from pathlib import Path
-import os
-
-if sys.version_info[:2] >= (3, 8):
-    from collections.abc import MutableMapping
-else:
-    from collections import MutableMapping
 
 
 def flatten_dict(d, parent_key="", sep="_"):
@@ -26,16 +21,13 @@ def flatten_dict(d, parent_key="", sep="_"):
     return dict(items)
 
 
-class RegularCheckpointing(pl.Callback):
-    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"):
-        general = pl_module.config.general
-        trainer.save_checkpoint(f"{general.save_dir}/last-epoch.ckpt")
-        print("Checkpoint created")
-
-
 def associate_instances(previous_ins_label, current_ins_label):
-    previous_instance_ids, c_p = np.unique(previous_ins_label[previous_ins_label != 0], return_counts=True)
-    current_instance_ids, c_c = np.unique(current_ins_label[current_ins_label != 0], return_counts=True)
+    previous_instance_ids, c_p = np.unique(
+        previous_ins_label[previous_ins_label != 0], return_counts=True
+    )
+    current_instance_ids, c_c = np.unique(
+        current_ins_label[current_ins_label != 0], return_counts=True
+    )
 
     associations = {0: 0}
 
@@ -54,8 +46,14 @@ def associate_instances(previous_ins_label, current_ins_label):
     association_costs = torch.zeros(p_n, c_n)
     for i, p_id in enumerate(large_previous_instance_ids):
         for j, c_id in enumerate(large_current_instance_ids):
-            intersection = np.sum((previous_ins_label == p_id) & (current_ins_label == c_id))
-            union = np.sum(previous_ins_label == p_id) + np.sum(current_ins_label == c_id) - intersection
+            intersection = np.sum(
+                (previous_ins_label == p_id) & (current_ins_label == c_id)
+            )
+            union = (
+                np.sum(previous_ins_label == p_id)
+                + np.sum(current_ins_label == c_id)
+                - intersection
+            )
             iou = intersection / union
             cost = 1 - iou
             association_costs[i, j] = cost
@@ -64,12 +62,16 @@ def associate_instances(previous_ins_label, current_ins_label):
 
     for i1, i2 in zip(idxes_1, idxes_2):
         if association_costs[i1][i2] < 1.0:
-            associations[large_current_instance_ids[i2]] = large_previous_instance_ids[i1]
+            associations[large_current_instance_ids[i2]] = large_previous_instance_ids[
+                i1
+            ]
     return associations
 
 
 def save_predictions(sem_preds, ins_preds, seq_name, sweep_name):
-    filename = Path("/globalwork/yilmaz/submission/sequences") / seq_name / "predictions"
+    filename = (
+        Path("/globalwork/yilmaz/submission/sequences") / seq_name / "predictions"
+    )
     # assert not filename.exists(), "Path exists"
     filename.mkdir(parents=True, exist_ok=True)
     learning_map_inv = {
@@ -99,3 +101,26 @@ def save_predictions(sem_preds, ins_preds, seq_name, sweep_name):
     if not os.path.exists(file_path):
         with open(file_path, "wb") as f:
             f.write(panoptic_preds.astype(np.uint32).tobytes())
+
+
+def generate_logs(losses, mode="train"):
+    logs = {
+        f"{mode}_mean_loss_class": [],
+        f"{mode}_mean_loss_mask": [],
+        f"{mode}_mean_loss_dice": [],
+        f"{mode}_mean_loss_box": [],
+    }
+
+    for k, v in losses.items():
+        if "loss_class" in k:
+            logs[f"{mode}_mean_loss_class"].append(v.detach().cpu().item())
+        elif "loss_mask" in k:
+            logs[f"{mode}_mean_loss_mask"].append(v.detach().cpu().item())
+        elif "loss_dice" in k:
+            logs[f"{mode}_mean_loss_dice"].append(v.detach().cpu().item())
+        elif "loss_box" in k:
+            logs[f"{mode}_mean_loss_box"].append(v.detach().cpu().item())
+
+    logs = {k: statistics.mean(v) for k, v in logs.items()}
+
+    return logs
