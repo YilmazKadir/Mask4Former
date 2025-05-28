@@ -78,9 +78,9 @@ general.ckpt_path='PATH_TO_CHECKPOINT.ckpt' \
 general.dbscan_eps=1.0
 ```
 ## Trained checkpoint
-[Mask4Former](https://omnomnom.vision.rwth-aachen.de/data/mask4former/mask4former.ckpt)
+[Mask4Former](https://omnomnom.vision.rwth-aachen.de/data/mask4former/mask4former_spconv.ckpt)
 
-The provided model, trained after the submission, achieves 71.1 LSTQ without DBSCAN and 71.5 with DBSCAN post-processing.
+The provided model, trained after the submission, achieves 71.3 LSTQ without DBSCAN and 72.0 with DBSCAN post-processing on the valiidation set.
 
 ## BibTeX
 ```
