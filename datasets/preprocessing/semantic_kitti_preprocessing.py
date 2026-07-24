@@ -1,4 +1,5 @@
 import re
+import h5py
 import numpy as np
 from pathlib import Path
 from loguru import logger
@@ -9,7 +10,7 @@ from datasets.utils import (
     parse_poses,
     load_yaml,
     save_database,
-    merge_trainval,
+    merge_trainval_h5,
 )
 
 
@@ -57,7 +58,7 @@ class SemanticKittiPreprocessing:
     def preprocess(self):
         for mode in self.modes:
             database = []
-            instance_database = {}
+            temp_instance_database = {}
             for filepath in tqdm(self.files[mode], unit="file"):
                 filebase = self.process_file(filepath, mode)
                 database.append(filebase)
@@ -67,20 +68,25 @@ class SemanticKittiPreprocessing:
                         unique_identifier = (
                             f"{instance['sequence']}_{instance['panoptic_label']}"
                         )
-                        if unique_identifier in instance_database:
-                            instance_database[unique_identifier]["filepaths"].append(
-                                instance["instance_filepath"]
-                            )
+
+                        if unique_identifier in temp_instance_database:
+                            temp_instance_database[unique_identifier]["instances"][instance["instance_name"]] = instance["instance_points"]
+
                         else:
-                            instance_database[unique_identifier] = {
-                                "semantic_label": instance["semantic_label"],
-                                "filepaths": [instance["instance_filepath"]],
+                            temp_instance_database[unique_identifier] = {
+                                "instances": {instance["instance_name"]: instance["instance_points"]},
+                                "semantic_label": instance["semantic_label"]
                             }
+
+            with h5py.File(self.save_dir / f"{mode}_instances_database.h5", "w") as hdf5_file:
+                for unique_identifier in temp_instance_database.keys():
+                    group = hdf5_file.create_group(unique_identifier)
+                    for instance_name, instance_points in temp_instance_database[unique_identifier]["instances"].items():
+                        group.create_dataset(instance_name, data=instance_points, compression="gzip")
+                    group.attrs["semantic_label"] = temp_instance_database[unique_identifier]["semantic_label"]
+
+
             save_database(database, mode, self.save_dir)
-            if self.generate_instances and mode in ["train", "validation"]:
-                save_database(
-                    list(instance_database.values()), f"{mode}_instances", self.save_dir
-                )
         merge_trainval(self.save_dir, self.generate_instances)
 
     def process_file(self, filepath, mode):
@@ -116,15 +122,14 @@ class SemanticKittiPreprocessing:
             if np.isin(semantic_label, range(1, 9)):
                 instance_mask = label == panoptic_label
                 instance_points = points[instance_mask, :]
-                filename = f"{sequence}_{panoptic_label:010d}_{scan}.npy"
-                instance_filepath = self.instances_dir / filename
+                instance_name = f"{scan}"
                 instance = {
                     "sequence": sequence,
                     "panoptic_label": f"{panoptic_label:010d}",
-                    "instance_filepath": str(instance_filepath),
                     "semantic_label": semantic_label.item(),
+                    "instance_points": instance_points.astype(np.float32),
+                    "instance_name": instance_name,
                 }
-                np.save(instance_filepath, instance_points.astype(np.float32))
                 file_instances.append(instance)
         return file_instances
 

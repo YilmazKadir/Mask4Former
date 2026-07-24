@@ -71,7 +71,7 @@ def parse_poses(filename, calibration):
     return poses
 
 
-def merge_trainval(save_dir, generate_instances):
+def merge_trainval_h5(save_dir, generate_instances):
     joint_db = [
         load_yaml(save_dir / (mode + "_database.yaml"))
         for mode in ["train", "validation"]
@@ -79,8 +79,11 @@ def merge_trainval(save_dir, generate_instances):
     save_yaml(save_dir / "trainval_database.yaml", joint_db)
 
     if generate_instances:
-        joint_db = [
-            load_yaml(save_dir / (mode + "_instances_database.yaml"))
-            for mode in ["train", "validation"]
-        ]
-        save_yaml(save_dir / "trainval_instances_database.yaml", joint_db)
+        with h5py.File(save_dir / "trainval_instances_database.h5", "w") as trainval_hdf5:
+            with h5py.File(save_dir / "train_instances_database.h5", "r") as train_hdf5:
+                for key in train_hdf5.keys():
+                    train_hdf5.copy(key, trainval_hdf5)
+
+            with h5py.File(save_dir / "validation_instances_database.h5", "r") as validation_hdf5:
+                for key in validation_hdf5.keys():
+                    validation_hdf5.copy(key, trainval_hdf5)

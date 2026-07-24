@@ -1,5 +1,6 @@
 import numpy as np
 import volumentations as V
+import h5py
 from loguru import logger
 from pathlib import Path
 from typing import List, Optional, Union
@@ -53,11 +54,6 @@ class SemanticKITTIDataset(Dataset):
         for i in range(len(data)):
             data[i] = list(self.chunks(data[i], sweep))
         self.data = [val for sublist in data for val in sublist]
-
-        if instance_population > 0:
-            self.instance_data = load_yaml(
-                database_path / f"{mode}_instances_database.yaml"
-            )
 
         # self.data = self.data[: int(len(self.data) * 0.002)]
 
@@ -176,37 +172,40 @@ class SemanticKITTIDataset(Dataset):
         features_list = []
         labels_list = []
         for _ in range(instance_population):
-            instance_dict = choice(self.instance_data)
-            idx = np.random.randint(len(instance_dict["filepaths"]))
-            instance_list = []
-            for time in range(self.sweep):
-                if idx < len(instance_dict["filepaths"]):
-                    filepath = instance_dict["filepaths"][idx]
-                    instance = np.load(filepath)
-                    time_array = (
-                        np.ones((instance.shape[0], 1), dtype=np.float32) * time
-                    )
-                    instance = np.hstack(
-                        (instance[:, :3], time_array, instance[:, 3:4])
-                    )
-                    instance_list.append(instance)
-                    idx = idx + 1
-            instances = np.vstack(instance_list)
-            coordinates = instances[:, :3] - instances[:, :3].mean(0)
-            coordinates += pc_center + np.array(
-                [uniform(-10, 10), uniform(-10, 10), uniform(-1, 1)]
-            )
-            features = instances[:, 3:]
-            semantic_label = instance_dict["semantic_label"]
-            labels = np.zeros_like(features, dtype=np.int64)
-            labels[:, 0] = semantic_label
-            max_instance_id = max_instance_id + 1
-            labels[:, 1] = max_instance_id
-            aug = self.volume_augmentations(points=coordinates)
-            coordinates = aug["points"]
-            coordinates_list.append(coordinates)
-            features_list.append(features)
-            labels_list.append(labels)
+            with h5py.File(Path(self.data_dir) / f"{self.mode}_instances_database.h5", "r") as f:
+                instance_group_name = choice(list(f.keys()))
+                instance_group = f[instance_group_name]
+                scan_names = list(instance_group.keys())
+                scan_idx = np.random.randint(len(scan_names))
+                instance_list = []
+                for time in range(self.sweep):
+                    if scan_idx + time < len(scan_names):
+                        instance = instance_group[scan_names[scan_idx + time]][:]
+                        time_array = (
+                            np.ones((instance.shape[0], 1), dtype=np.float32) * time
+                        )
+                        instance = np.hstack(
+                            (instance[:, :3], time_array, instance[:, 3:4])
+                        )
+                        instance_list.append(instance)
+                
+                instances = np.vstack(instance_list)
+                coordinates = instances[:, :3] - instances[:, :3].mean(0)
+                coordinates += pc_center + np.array(
+                    [uniform(-10, 10), uniform(-10, 10), uniform(-1, 1)]
+                )
+                features = instances[:, 3:]
+                semantic_label = instance_group.attrs["semantic_label"]
+                labels = np.zeros_like(features, dtype=np.int64)
+                labels[:, 0] = semantic_label
+                max_instance_id = max_instance_id + 1
+                labels[:, 1] = max_instance_id
+                aug = self.volume_augmentations(points=coordinates)
+                coordinates = aug["points"]
+                coordinates_list.append(coordinates)
+                features_list.append(features)
+                labels_list.append(labels)
+        
         return (
             np.vstack(coordinates_list),
             np.vstack(features_list),
